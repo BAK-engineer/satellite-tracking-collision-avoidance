@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Orbital Ballet - Compatible Version</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            color: #00ff9f;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #canvas {
+            display: block;
+            background: radial-gradient(circle at center, #001122 0%, #000000 100%);
+        }
+        
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        #status {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 10px 15px;
+            background: rgba(0, 255, 159, 0.1);
+            border: 1px solid #00ff9f;
+            color: #00ff9f;
+            font-size: 14px;
+            border-radius: 5px;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #00ff9f;
+            color: #00ff9f;
+            min-width: 200px;
+            pointer-events: auto;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-label {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .control-button {
+            background: linear-gradient(135deg, #00ff9f 0%, #00d4aa 100%);
+            color: #000;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 2px;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+        
+        .control-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(0, 255, 159, 0.4);
+        }
+        
+        .control-button.active {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+        }
+        
+        #info-panel {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #00ff9f;
+            color: #00ff9f;
+            max-width: 300px;
+            pointer-events: auto;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+        
+        .info-label { font-weight: bold; }
+        
+        #satellite-list {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #00ff9f;
+            color: #00ff9f;
+            max-height: 300px;
+            overflow-y: auto;
+            width: 200px;
+            pointer-events: auto;
+        }
+        
+        .satellite-item {
+            padding: 8px;
+            margin: 3px 0;
+            background: rgba(0, 255, 159, 0.1);
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+        
+        .satellite-item:hover {
+            background: rgba(0, 255, 159, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .satellite-item.selected {
+            background: rgba(255, 107, 107, 0.2);
+            border-left: 3px solid #ff6b6b;
+        }
+        
+        .satellite-item.maneuvering {
+            border-left: 3px solid #ffff00;
+            background: rgba(255, 255, 0, 0.1);
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .maneuvering-indicator {
+            animation: pulse 2s infinite;
+            color: #ffff00;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+        
+        <div id="hud">
+            <div id="status">🚀 Initializing Orbital Simulation...</div>
+            
+            <div id="controls">
+                <div class="control-group">
+                    <div class="control-label">🎮 View Control</div>
+                    <button class="control-button" onclick="focusEarth()">Focus Earth</button>
+                    <button class="control-button" onclick="focusISS()">Track ISS</button>
+                    <button class="control-button" onclick="resetView()">Reset</button>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-label">⏰ Time Control</div>
+                    <button class="control-button" onclick="setTimeSpeed(0)">Pause</button>
+                    <button class="control-button active" onclick="setTimeSpeed(1)">1x</button>
+                    <button class="control-button" onclick="setTimeSpeed(5)">5x</button>
+                    <button class="control-button" onclick="setTimeSpeed(10)">10x</button>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-label">🌍 Display</div>
+                    <button class="control-button active" id="sat-toggle" onclick="toggleSatellites()">Satellites</button>
+                    <button class="control-button active" id="debris-toggle" onclick="toggleDebris()">Debris</button>
+                    <button class="control-button active" id="rotation-toggle" onclick="toggleRotation()">Rotation</button>
+                </div>
+            </div>
+            
+            <div id="info-panel">
+                <div style="font-weight: bold; margin-bottom: 10px;">📊 Mission Control</div>
+                <div class="info-item">
+                    <span class="info-label">Active Satellites:</span>
+                    <span id="satellite-count">8</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Debris Objects:</span>
+                    <span id="debris-count">50</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Active Maneuvers:</span>
+                    <span id="maneuver-count" class="maneuvering-indicator">1</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Time Speed:</span>
+                    <span id="time-speed">1x</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Frame Rate:</span>
+                    <span id="fps">60 FPS</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Data Source:</span>
+                    <span class="blink">Live Feed</span>
+                </div>
+            </div>
+            
+            <div id="satellite-list">
+                <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">📡 Tracked Objects</div>
+                <div id="satellite-items"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let canvas, ctx;
+        let satellites = [];
+        let debris = [];
+        let earthAngle = 0;
+        let timeSpeed = 1;
+        let showSatellites = true, showDebris = true, earthRotation = true;
+        let selectedSatellite = null;
+        let frameCount = 0, lastTime = Date.now();
+        let cameraX = 0, cameraY = 0, zoom = 1;
+        
+        // Enhanced satellite data with maneuvering
+        const satelliteData = [
+            { id: 'iss', name: 'ISS (ZARYA)', color: '#ff0000', size: 8, angle: 0, radius: 120, speed: 0.02, altitude: 408, is_maneuvering: false },
+            { id: 'hubble', name: 'HUBBLE TELESCOPE', color: '#00ff00', size: 6, angle: 1, radius: 140, speed: 0.018, altitude: 547, is_maneuvering: false },
+            { id: 'starlink1', name: 'STARLINK-1007', color: '#0080ff', size: 5, angle: 2, radius: 135, speed: 0.019, altitude: 550, is_maneuvering: true },
+            { id: 'starlink2', name: 'STARLINK-1019', color: '#0080ff', size: 5, angle: 3, radius: 135, speed: 0.019, altitude: 550, is_maneuvering: false },
+            { id: 'gps1', name: 'GPS BIIA-21', color: '#ffff00', size: 6, angle: 4, radius: 250, speed: 0.008, altitude: 20200, is_maneuvering: false },
+            { id: 'gps2', name: 'GPS BIIF-12', color: '#ffff00', size: 6, angle: 5, radius: 250, speed: 0.008, altitude: 20200, is_maneuvering: false },
+            { id: 'cosmos', name: 'COSMOS 2251 DEB', color: '#ff8000', size: 4, angle: 6, radius: 180, speed: 0.015, altitude: 790, is_maneuvering: false },
+            { id: 'tiangong', name: 'CSS (TIANHE)', color: '#ff0080', size: 8, angle: 0.5, radius: 115, speed: 0.021, altitude: 340, is_maneuvering: false }
+        ];
+
+        function init() {
+            updateStatus('🚀 Initializing Canvas Renderer...');
+            
+            canvas = document.getElementById('canvas');
+            if (!canvas) {
+                updateStatus('❌ Canvas not found');
+                return;
+            }
+            
+            ctx = canvas.getContext('2d');
+            if (!ctx) {
+                updateStatus('❌ Canvas 2D context not available');
+                return;
+            }
+            
+            resizeCanvas();
+            
+            // Initialize satellites
+            satellites = satelliteData.map(sat => ({...sat}));
+            
+            // Initialize debris
+            debris = [];
+            for (let i = 0; i < 50; i++) {
+                debris.push({
+                    id: `debris_${i}`,
+                    name: `DEBRIS-${1000 + i}`,
+                    color: '#808080',
+                    size: 2,
+                    angle: Math.random() * Math.PI * 2,
+                    radius: 80 + Math.random() * 200,
+                    speed: 0.01 + Math.random() * 0.02
+                });
+            }
+            
+            updateSatelliteList();
+            
+            window.addEventListener('resize', resizeCanvas);
+            
+            updateStatus('✅ Orbital Simulation Ready');
+            animate();
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Clear canvas
+            ctx.fillStyle = '#000011';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw stars
+            drawStars();
+            
+            // Update and draw Earth
+            if (earthRotation) {
+                earthAngle += 0.005 * timeSpeed;
+            }
+            drawEarth();
+            
+            // Update and draw satellites
+            if (showSatellites) {
+                updateSatellites();
+                drawSatellites();
+            }
+            
+            // Update and draw debris
+            if (showDebris) {
+                updateDebris();
+                drawDebris();
+            }
+            
+            // Update FPS
+            updateFPS();
+        }
+
+        function drawStars() {
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < 200; i++) {
+                const x = (i * 123) % canvas.width;
+                const y = (i * 456) % canvas.height;
+                const size = Math.random() * 2;
+                ctx.fillRect(x, y, size, size);
+            }
+        }
+
+        function drawEarth() {
+            const centerX = canvas.width / 2 + cameraX;
+            const centerY = canvas.height / 2 + cameraY;
+            const earthRadius = 50 * zoom;
+            
+            // Earth
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, earthRadius);
+            gradient.addColorStop(0, '#2233ff');
+            gradient.addColorStop(0.7, '#1122aa');
+            gradient.addColorStop(1, '#001166');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, earthRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Earth atmosphere
+            const atmoGradient = ctx.createRadialGradient(centerX, centerY, earthRadius, centerX, centerY, earthRadius + 10);
+            atmoGradient.addColorStop(0, 'rgba(135, 206, 235, 0.3)');
+            atmoGradient.addColorStop(1, 'rgba(135, 206, 235, 0)');
+            
+            ctx.fillStyle = atmoGradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, earthRadius + 10 * zoom, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Earth rotation lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 4) * Math.PI + earthAngle;
+                const x1 = centerX + Math.cos(angle) * earthRadius * 0.8;
+                const y1 = centerY + Math.sin(angle) * earthRadius * 0.8;
+                const x2 = centerX - Math.cos(angle) * earthRadius * 0.8;
+                const y2 = centerY - Math.sin(angle) * earthRadius * 0.8;
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+
+        function updateSatellites() {
+            satellites.forEach(sat => {
+                sat.angle += sat.speed * timeSpeed;
+                
+                // Add maneuvering motion
+                if (sat.is_maneuvering) {
+                    sat.radius += Math.sin(Date.now() * 0.005) * 2;
+                    sat.speed *= (1 + Math.sin(Date.now() * 0.01) * 0.1);
+                }
+            });
+        }
+
+        function drawSatellites() {
+            const centerX = canvas.width / 2 + cameraX;
+            const centerY = canvas.height / 2 + cameraY;
+            
+            satellites.forEach(sat => {
+                const x = centerX + Math.cos(sat.angle) * sat.radius * zoom;
+                const y = centerY + Math.sin(sat.angle) * sat.radius * zoom;
+                
+                // Satellite body
+                ctx.fillStyle = sat.color;
+                ctx.shadowColor = sat.color;
+                ctx.shadowBlur = sat.is_maneuvering ? 15 : 5;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, sat.size * zoom, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.shadowBlur = 0;
+                
+                // Maneuvering indicators
+                if (sat.is_maneuvering) {
+                    // Thrust vector
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 3 * zoom;
+                    const thrustLength = 20 * zoom;
+                    const thrustAngle = sat.angle + Math.PI;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(
+                        x + Math.cos(thrustAngle) * thrustLength,
+                        y + Math.sin(thrustAngle) * thrustLength
+                    );
+                    ctx.stroke();
+                    
+                    // Thrust particles
+                    for (let i = 0; i < 5; i++) {
+                        const particleAngle = thrustAngle + (Math.random() - 0.5) * 0.5;
+                        const particleDistance = thrustLength + Math.random() * 10 * zoom;
+                        const particleX = x + Math.cos(particleAngle) * particleDistance;
+                        const particleY = y + Math.sin(particleAngle) * particleDistance;
+                        
+                        ctx.fillStyle = `rgba(255, 255, 0, ${Math.random() * 0.8})`;
+                        ctx.beginPath();
+                        ctx.arc(particleX, particleY, Math.random() * 2 * zoom, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                    // Maneuvering text
+                    ctx.fillStyle = '#ffff00';
+                    ctx.font = `${12 * zoom}px Courier New`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🚀 MANEUVERING', x, y - (sat.size + 15) * zoom);
+                }
+                
+                // Satellite label
+                ctx.fillStyle = sat.color;
+                ctx.font = `${10 * zoom}px Courier New`;
+                ctx.textAlign = 'center';
+                ctx.fillText(sat.name, x, y + (sat.size + 15) * zoom);
+                
+                // Selection indicator
+                if (selectedSatellite === sat.id) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.arc(x, y, (sat.size + 5) * zoom, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            });
+        }
+
+        function updateDebris() {
+            debris.forEach(deb => {
+                deb.angle += deb.speed * timeSpeed;
+            });
+        }
+
+        function drawDebris() {
+            const centerX = canvas.width / 2 + cameraX;
+            const centerY = canvas.height / 2 + cameraY;
+            
+            debris.forEach(deb => {
+                const x = centerX + Math.cos(deb.angle) * deb.radius * zoom;
+                const y = centerY + Math.sin(deb.angle) * deb.radius * zoom;
+                
+                ctx.fillStyle = deb.color;
+                ctx.beginPath();
+                ctx.arc(x, y, deb.size * zoom, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function updateFPS() {
+            frameCount++;
+            const now = Date.now();
+            if (now - lastTime >= 1000) {
+                document.getElementById('fps').textContent = frameCount + ' FPS';
+                frameCount = 0;
+                lastTime = now;
+            }
+        }
+
+        function updateSatelliteList() {
+            const container = document.getElementById('satellite-items');
+            container.innerHTML = '';
+            
+            satellites.forEach(sat => {
+                const item = document.createElement('div');
+                item.className = `satellite-item ${sat.is_maneuvering ? 'maneuvering' : ''}`;
+                item.innerHTML = `
+                    <div style="font-weight: bold;">${sat.name}</div>
+                    <div style="font-size: 10px; opacity: 0.7;">Alt: ${sat.altitude}km</div>
+                    <div style="font-size: 10px; ${sat.is_maneuvering ? 'color: #ffff00; font-weight: bold;' : 'opacity: 0.7;'}">
+                        ${sat.is_maneuvering ? '🚀 MANEUVERING' : '✅ Nominal'}
+                    </div>
+                `;
+                
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.satellite-item').forEach(el => el.classList.remove('selected'));
+                    item.classList.add('selected');
+                    selectedSatellite = sat.id;
+                    focusOnSatellite(sat);
+                });
+                
+                container.appendChild(item);
+            });
+        }
+
+        // Control functions
+        function focusEarth() {
+            cameraX = 0;
+            cameraY = 0;
+            zoom = 1;
+        }
+
+        function focusISS() {
+            const iss = satellites.find(s => s.id === 'iss');
+            if (iss) focusOnSatellite(iss);
+        }
+
+        function focusOnSatellite(sat) {
+            const targetX = -Math.cos(sat.angle) * sat.radius * 0.5;
+            const targetY = -Math.sin(sat.angle) * sat.radius * 0.5;
+            cameraX = targetX;
+            cameraY = targetY;
+            zoom = 1.5;
+        }
+
+        function resetView() {
+            cameraX = 0;
+            cameraY = 0;
+            zoom = 1;
+        }
+
+        function setTimeSpeed(speed) {
+            timeSpeed = speed;
+            document.getElementById('time-speed').textContent = speed + 'x';
+            document.querySelectorAll('#controls .control-button').forEach(btn => {
+                if (btn.textContent === speed + 'x' || (speed === 0 && btn.textContent === 'Pause')) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        function toggleSatellites() {
+            showSatellites = !showSatellites;
+            document.getElementById('sat-toggle').classList.toggle('active', showSatellites);
+        }
+
+        function toggleDebris() {
+            showDebris = !showDebris;
+            document.getElementById('debris-toggle').classList.toggle('active', showDebris);
+        }
+
+        function toggleRotation() {
+            earthRotation = !earthRotation;
+            document.getElementById('rotation-toggle').classList.toggle('active', earthRotation);
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

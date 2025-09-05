@@ -1,0 +1,171 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  database:
+    image: postgres:13-alpine
+    container_name: orbital-ballet-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: orbital_ballet
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orbital_ballet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - orbital-network
+
+  # Main Application (Full System)
+  app-main:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orbital-ballet-main
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    ports:
+      - "8501:8501"
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+      - app_logs:/app/logs
+    command: ["streamlit", "run", "app.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
+    networks:
+      - orbital-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Enhanced Dashboard
+  app-enhanced:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orbital-ballet-enhanced
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
+      - STREAMLIT_SERVER_PORT=8502
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    ports:
+      - "8502:8502"
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+      - app_logs:/app/logs
+    command: ["streamlit", "run", "ui_enhanced.py", "--server.address", "0.0.0.0", "--server.port", "8502"]
+    networks:
+      - orbital-network
+
+  # Integrated Maneuvering System
+  app-maneuvering:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orbital-ballet-maneuvering
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
+      - STREAMLIT_SERVER_PORT=8503
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    ports:
+      - "8503:8503"
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+      - app_logs:/app/logs
+    command: ["streamlit", "run", "ui_integrated.py", "--server.address", "0.0.0.0", "--server.port", "8503"]
+    networks:
+      - orbital-network
+
+  # Three.js Integrated Application
+  app-threejs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orbital-ballet-threejs
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
+      - STREAMLIT_SERVER_PORT=8504
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    ports:
+      - "8504:8504"
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+      - app_logs:/app/logs
+    command: ["streamlit", "run", "ui_threejs_integrated.py", "--server.address", "0.0.0.0", "--server.port", "8504"]
+    networks:
+      - orbital-network
+
+  # WebSocket Server for Real-time Data
+  websocket-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orbital-ballet-websocket
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
+    ports:
+      - "8765:8765"
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+      - app_logs:/app/logs
+    command: ["python", "websocket_server.py"]
+    networks:
+      - orbital-network
+
+  # Database Initializer (Run once)
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orbital-ballet-init
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+    command: ["python", "setup_database.py", "--create-tables", "--sample-data"]
+    networks:
+      - orbital-network
+    restart: "no"
+
+volumes:
+  postgres_data:
+    driver: local
+  app_logs:
+    driver: local
+
+networks:
+  orbital-network:
+    driver: bridge

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satellite Information Panel</title>
+    <style>
+        .satellite-info-panel {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            margin: 10px 0;
+        }
+        
+        .panel-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+        
+        .satellite-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        
+        .panel-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .info-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #00ff9f;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #00ff9f;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-active { background-color: #00ff9f; }
+        .status-maneuvering { background-color: #ff6b6b; }
+        .status-idle { background-color: #ffd93d; }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .maneuver-info {
+            background: rgba(255, 107, 107, 0.2);
+            border-left-color: #ff6b6b;
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+        
+        .maneuver-progress {
+            width: 100%;
+            height: 8px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .maneuver-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ff8e53);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="satellite-info-panel">
+        <div class="panel-header">
+            <span class="satellite-icon">🛰️</span>
+            <h2 class="panel-title">Satellite: <span id="satellite-name">ISS (ZARYA)</span></h2>
+        </div>
+        
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Status</div>
+                <div class="info-value">
+                    <span class="status-indicator status-active pulse"></span>
+                    <span id="satellite-status">Active</span>
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">Altitude</div>
+                <div class="info-value" id="satellite-altitude">408.2 km</div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">Velocity</div>
+                <div class="info-value" id="satellite-velocity">7.66 km/s</div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">Orbital Period</div>
+                <div class="info-value" id="orbital-period">92.8 min</div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">Inclination</div>
+                <div class="info-value" id="inclination">51.64°</div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">NORAD ID</div>
+                <div class="info-value" id="norad-id">25544</div>
+            </div>
+        </div>
+        
+        <!-- Maneuver Information (shown when maneuvering) -->
+        <div id="maneuver-section" style="display: none;">
+            <div class="info-item maneuver-info" style="margin-top: 20px;">
+                <div class="info-label">🚀 Active Maneuver</div>
+                <div class="info-value">
+                    <div>Delta-V: <span id="maneuver-delta-v">0.125</span> km/s</div>
+                    <div style="margin: 5px 0;">Duration: <span id="maneuver-duration">300</span> seconds</div>
+                    <div class="maneuver-progress">
+                        <div class="maneuver-progress-bar" id="maneuver-progress" style="width: 45%;"></div>
+                    </div>
+                    <div style="font-size: 12px; margin-top: 5px; opacity: 0.8;">
+                        Progress: <span id="maneuver-progress-text">45%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript functions to update the panel
+        function updateSatelliteInfo(data) {
+            document.getElementById('satellite-name').textContent = data.name || 'Unknown';
+            document.getElementById('satellite-altitude').textContent = (data.altitude || 0).toFixed(1) + ' km';
+            document.getElementById('satellite-velocity').textContent = (data.velocity || 0).toFixed(2) + ' km/s';
+            document.getElementById('orbital-period').textContent = (data.period || 0).toFixed(1) + ' min';
+            document.getElementById('inclination').textContent = (data.inclination || 0).toFixed(2) + '°';
+            document.getElementById('norad-id').textContent = data.norad_id || 'N/A';
+            
+            // Update status
+            const statusElement = document.getElementById('satellite-status');
+            const statusIndicator = document.querySelector('.status-indicator');
+            
+            if (data.is_maneuvering) {
+                statusElement.textContent = 'Maneuvering';
+                statusIndicator.className = 'status-indicator status-maneuvering pulse';
+                showManeuverInfo(data.maneuver);
+            } else {
+                statusElement.textContent = 'Active';
+                statusIndicator.className = 'status-indicator status-active pulse';
+                hideManeuverInfo();
+            }
+        }
+        
+        function showManeuverInfo(maneuver) {
+            const section = document.getElementById('maneuver-section');
+            section.style.display = 'block';
+            
+            document.getElementById('maneuver-delta-v').textContent = (maneuver.delta_v || 0).toFixed(3);
+            document.getElementById('maneuver-duration').textContent = maneuver.duration || 0;
+            
+            const progress = Math.min((maneuver.progress || 0) * 100, 100);
+            document.getElementById('maneuver-progress').style.width = progress + '%';
+            document.getElementById('maneuver-progress-text').textContent = progress.toFixed(0) + '%';
+        }
+        
+        function hideManeuverInfo() {
+            document.getElementById('maneuver-section').style.display = 'none';
+        }
+        
+        // Example usage - this would be called from Streamlit
+        // updateSatelliteInfo({
+        //     name: 'ISS (ZARYA)',
+        //     altitude: 408.2,
+        //     velocity: 7.66,
+        //     period: 92.8,
+        //     inclination: 51.64,
+        //     norad_id: 25544,
+        //     is_maneuvering: false
+        // });
+    </script>
+</body>
+</html>

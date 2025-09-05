@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Orbital Map</title>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        #orbital-map {
+            height: 100vh;
+            width: 100%;
+            background: #000;
+        }
+        
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            min-width: 200px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-label {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #00ff9f;
+        }
+        
+        .control-input {
+            width: 100%;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #00ff9f;
+            border-radius: 3px;
+            color: white;
+        }
+        
+        .satellite-marker {
+            background: #00ff9f;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            box-shadow: 0 0 10px #00ff9f;
+            animation: pulse 2s infinite;
+        }
+        
+        .satellite-marker.maneuvering {
+            background: #ff6b6b;
+            box-shadow: 0 0 10px #ff6b6b;
+        }
+        
+        .ground-track {
+            stroke: #00ff9f;
+            stroke-width: 2;
+            stroke-opacity: 0.6;
+            fill: none;
+        }
+        
+        .predicted-track {
+            stroke: #ffd93d;
+            stroke-width: 1;
+            stroke-dasharray: 5,5;
+            stroke-opacity: 0.4;
+            fill: none;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .leaflet-popup-content {
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        
+        .satellite-info {
+            min-width: 200px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #00ff9f;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+            font-size: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 3px 0;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="orbital-map"></div>
+    
+    <div class="map-controls">
+        <div class="control-group">
+            <div class="control-label">🎯 Tracking Mode</div>
+            <select class="control-input" id="tracking-mode">
+                <option value="all">All Satellites</option>
+                <option value="iss">ISS Only</option>
+                <option value="starlink">Starlink Constellation</option>
+                <option value="maneuvering">Maneuvering Only</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <div class="control-label">⏱️ Prediction Time</div>
+            <select class="control-input" id="prediction-time">
+                <option value="0">Current Position</option>
+                <option value="30">+30 minutes</option>
+                <option value="60">+1 hour</option>
+                <option value="120">+2 hours</option>
+                <option value="360">+6 hours</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <div class="control-label">🔄 Auto Update</div>
+            <label style="display: flex; align-items: center;">
+                <input type="checkbox" id="auto-update" checked style="margin-right: 5px;">
+                <span>Every 10 seconds</span>
+            </label>
+        </div>
+        
+        <div class="control-group">
+            <button class="control-input" onclick="refreshData()" style="background: #00ff9f; color: black; border: none; cursor: pointer;">
+                🔄 Refresh Now
+            </button>
+        </div>
+    </div>
+    
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background: #00ff9f;"></div>
+            <span>Active Satellite</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff6b6b;"></div>
+            <span>Maneuvering</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ffd93d;"></div>
+            <span>Predicted Path</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #00ff9f; opacity: 0.6;"></div>
+            <span>Ground Track</span>
+        </div>
+    </div>
+
+    <script>
+        // Initialize the map
+        const map = L.map('orbital-map', {
+            center: [0, 0],
+            zoom: 2,
+            preferCanvas: true,
+            worldCopyJump: true
+        });
+
+        // Add satellite imagery layer
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+            maxZoom: 18
+        }).addTo(map);
+
+        // Store satellite markers and tracks
+        let satelliteMarkers = {};
+        let groundTracks = {};
+        let predictionTracks = {};
+
+        // Custom satellite icon
+        const satelliteIcon = L.divIcon({
+            className: 'satellite-marker',
+            iconSize: [12, 12],
+            iconAnchor: [6, 6]
+        });
+
+        const maneuveringIcon = L.divIcon({
+            className: 'satellite-marker maneuvering',
+            iconSize: [12, 12],
+            iconAnchor: [6, 6]
+        });
+
+        // Function to add or update satellite on map
+        function updateSatellite(satellite) {
+            const { id, name, lat, lng, altitude, velocity, is_maneuvering, norad_id } = satellite;
+            
+            // Create or update marker
+            if (satelliteMarkers[id]) {
+                satelliteMarkers[id].setLatLng([lat, lng]);
+            } else {
+                const marker = L.marker([lat, lng], {
+                    icon: is_maneuvering ? maneuveringIcon : satelliteIcon
+                }).addTo(map);
+                
+                // Create popup
+                const popupContent = `
+                    <div class="satellite-info">
+                        <h4 style="margin: 0 0 10px 0; color: #00ff9f;">${name}</h4>
+                        <div class="info-row">
+                            <span class="info-label">NORAD ID:</span>
+                            <span>${norad_id}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Altitude:</span>
+                            <span>${altitude.toFixed(1)} km</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Velocity:</span>
+                            <span>${velocity.toFixed(2)} km/s</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Status:</span>
+                            <span style="color: ${is_maneuvering ? '#ff6b6b' : '#00ff9f'};">
+                                ${is_maneuvering ? 'Maneuvering' : 'Nominal'}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Position:</span>
+                            <span>${lat.toFixed(2)}°, ${lng.toFixed(2)}°</span>
+                        </div>
+                    </div>
+                `;
+                
+                marker.bindPopup(popupContent);
+                satelliteMarkers[id] = marker;
+            }
+            
+            // Update icon if maneuver status changed
+            if (satelliteMarkers[id]) {
+                satelliteMarkers[id].setIcon(is_maneuvering ? maneuveringIcon : satelliteIcon);
+            }
+        }
+
+        // Function to add ground track
+        function addGroundTrack(satelliteId, trackPoints) {
+            // Remove existing track
+            if (groundTracks[satelliteId]) {
+                map.removeLayer(groundTracks[satelliteId]);
+            }
+            
+            // Add new track
+            if (trackPoints && trackPoints.length > 1) {
+                const track = L.polyline(trackPoints, {
+                    color: '#00ff9f',
+                    weight: 2,
+                    opacity: 0.6
+                }).addTo(map);
+                
+                groundTracks[satelliteId] = track;
+            }
+        }
+
+        // Function to add prediction track
+        function addPredictionTrack(satelliteId, predictionPoints) {
+            // Remove existing prediction
+            if (predictionTracks[satelliteId]) {
+                map.removeLayer(predictionTracks[satelliteId]);
+            }
+            
+            // Add new prediction
+            if (predictionPoints && predictionPoints.length > 1) {
+                const track = L.polyline(predictionPoints, {
+                    color: '#ffd93d',
+                    weight: 1,
+                    opacity: 0.4,
+                    dashArray: '5, 5'
+                }).addTo(map);
+                
+                predictionTracks[satelliteId] = track;
+            }
+        }
+
+        // Function to clear all satellites
+        function clearSatellites() {
+            Object.values(satelliteMarkers).forEach(marker => map.removeLayer(marker));
+            Object.values(groundTracks).forEach(track => map.removeLayer(track));
+            Object.values(predictionTracks).forEach(track => map.removeLayer(track));
+            
+            satelliteMarkers = {};
+            groundTracks = {};
+            predictionTracks = {};
+        }
+
+        // Control event handlers
+        document.getElementById('tracking-mode').addEventListener('change', function(e) {
+            // This would filter satellites based on mode
+            console.log('Tracking mode changed to:', e.target.value);
+            // Integration point with Streamlit
+        });
+
+        document.getElementById('prediction-time').addEventListener('change', function(e) {
+            // This would update prediction time
+            console.log('Prediction time changed to:', e.target.value);
+            // Integration point with Streamlit
+        });
+
+        function refreshData() {
+            console.log('Refreshing satellite data...');
+            // Integration point with Streamlit to refresh data
+        }
+
+        // Auto-update functionality
+        let updateInterval;
+        document.getElementById('auto-update').addEventListener('change', function(e) {
+            if (e.target.checked) {
+                updateInterval = setInterval(() => {
+                    refreshData();
+                }, 10000);
+            } else {
+                clearInterval(updateInterval);
+            }
+        });
+
+        // Example usage - these functions would be called from Streamlit
+        function loadSampleData() {
+            // Sample satellite data
+            const sampleSatellites = [
+                {
+                    id: 'iss',
+                    name: 'ISS (ZARYA)',
+                    lat: 45.2,
+                    lng: -122.3,
+                    altitude: 408.2,
+                    velocity: 7.66,
+                    is_maneuvering: false,
+                    norad_id: 25544
+                },
+                {
+                    id: 'starlink',
+                    name: 'STARLINK-1007',
+                    lat: 52.1,
+                    lng: 15.7,
+                    altitude: 550.0,
+                    velocity: 7.56,
+                    is_maneuvering: true,
+                    norad_id: 43013
+                }
+            ];
+            
+            sampleSatellites.forEach(sat => updateSatellite(sat));
+            
+            // Sample ground tracks
+            addGroundTrack('iss', [
+                [45.2, -122.3], [44.8, -120.1], [44.2, -118.5], [43.5, -116.2]
+            ]);
+            
+            addPredictionTrack('iss', [
+                [45.2, -122.3], [46.1, -119.8], [47.2, -117.1], [48.1, -114.5]
+            ]);
+        }
+
+        // Load sample data for demonstration
+        setTimeout(loadSampleData, 1000);
+
+        // Start auto-update by default
+        updateInterval = setInterval(refreshData, 10000);
+
+        // Integration interface for Streamlit
+        window.orbitalMap = {
+            updateSatellite: updateSatellite,
+            addGroundTrack: addGroundTrack,
+            addPredictionTrack: addPredictionTrack,
+            clearSatellites: clearSatellites,
+            refreshData: refreshData
+        };
+    </script>
+</body>
+</html>

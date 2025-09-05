@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Control Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            font-family: 'Courier New', monospace;
+            color: #00ff9f;
+            overflow-x: hidden;
+        }
+        
+        .mission-control-header {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 30px;
+            border-bottom: 2px solid #00ff9f;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .mission-title {
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: #00ff9f;
+            text-shadow: 0 0 10px #00ff9f;
+        }
+        
+        .mission-time {
+            font-size: 18px;
+            color: #ffffff;
+            background: rgba(0, 255, 159, 0.1);
+            padding: 8px 15px;
+            border-radius: 5px;
+            border: 1px solid #00ff9f;
+        }
+        
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 30px;
+        }
+        
+        .control-panel {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #00ff9f;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 159, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .panel-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #00ff9f;
+            text-transform: uppercase;
+            border-bottom: 1px solid #00ff9f;
+            padding-bottom: 10px;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .status-item {
+            background: rgba(0, 255, 159, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            border: 1px solid rgba(0, 255, 159, 0.3);
+        }
+        
+        .status-label {
+            font-size: 10px;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+        
+        .status-value {
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .alert-panel {
+            background: rgba(255, 107, 107, 0.1);
+            border-color: #ff6b6b;
+        }
+        
+        .alert-panel .panel-title {
+            color: #ff6b6b;
+            border-bottom-color: #ff6b6b;
+        }
+        
+        .alert-item {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid #ff6b6b;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        
+        .alert-high { border-left: 4px solid #ff4757; }
+        .alert-medium { border-left: 4px solid #ffa502; }
+        .alert-low { border-left: 4px solid #fffa65; }
+        
+        .maneuver-controls {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .control-button {
+            background: linear-gradient(135deg, #00ff9f 0%, #00d4aa 100%);
+            color: #000;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            text-transform: uppercase;
+        }
+        
+        .control-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 159, 0.4);
+        }
+        
+        .control-button:active {
+            transform: translateY(0);
+        }
+        
+        .emergency-button {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+        }
+        
+        .emergency-button:hover {
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .orbit-timeline {
+            height: 200px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            position: relative;
+            overflow-y: auto;
+        }
+        
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 8px;
+            background: rgba(0, 255, 159, 0.1);
+            border-radius: 5px;
+            border-left: 3px solid #00ff9f;
+        }
+        
+        .timeline-time {
+            min-width: 80px;
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        
+        .timeline-event {
+            flex: 1;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        
+        .radar-sweep {
+            width: 120px;
+            height: 120px;
+            border: 2px solid #00ff9f;
+            border-radius: 50%;
+            position: relative;
+            margin: 20px auto;
+            background: radial-gradient(circle, rgba(0, 255, 159, 0.1) 0%, transparent 70%);
+        }
+        
+        .radar-line {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 50px;
+            background: #00ff9f;
+            transform-origin: bottom;
+            animation: radar-sweep 3s linear infinite;
+        }
+        
+        @keyframes radar-sweep {
+            0% { transform: translate(-50%, -100%) rotate(0deg); }
+            100% { transform: translate(-50%, -100%) rotate(360deg); }
+        }
+        
+        .satellite-dot {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #00ff9f;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #00ff9f;
+        }
+    </style>
+</head>
+<body>
+    <div class="mission-control-header">
+        <div class="mission-title">🚀 Live Orbital Ballet - Mission Control</div>
+        <div class="mission-time" id="mission-time">2024-01-15 14:23:45 UTC</div>
+    </div>
+    
+    <div class="control-grid">
+        <!-- System Status Panel -->
+        <div class="control-panel">
+            <div class="panel-title">🔧 System Status</div>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-label">Satellites Tracked</div>
+                    <div class="status-value" id="satellites-count">63</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Active Maneuvers</div>
+                    <div class="status-value" id="active-maneuvers">2</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">System Health</div>
+                    <div class="status-value" id="system-health">OPTIMAL</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Data Age</div>
+                    <div class="status-value" id="data-age">15s</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mission Control -->
+        <div class="control-panel">
+            <div class="panel-title">🎮 Mission Control</div>
+            <div class="maneuver-controls">
+                <button class="control-button" onclick="planManeuver()">Plan Maneuver</button>
+                <button class="control-button" onclick="executeManeuver()">Execute</button>
+                <button class="control-button" onclick="pauseOperations()">Pause Ops</button>
+                <button class="control-button emergency-button" onclick="emergencyStop()">Emergency Stop</button>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <div class="status-label">Selected Satellite:</div>
+                <select id="satellite-selector" style="width: 100%; padding: 8px; background: rgba(0, 255, 159, 0.1); border: 1px solid #00ff9f; color: #00ff9f; border-radius: 5px;">
+                    <option value="25544">ISS (ZARYA)</option>
+                    <option value="43013">STARLINK-1007</option>
+                    <option value="48274">CSS (TIANHE)</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Alerts Panel -->
+        <div class="control-panel alert-panel">
+            <div class="panel-title">⚠️ Alerts & Warnings</div>
+            <div class="alert-item alert-high blink">
+                <strong>HIGH:</strong> Collision risk detected - ISS vs Debris #47291
+            </div>
+            <div class="alert-item alert-medium">
+                <strong>MEDIUM:</strong> Starlink-1007 maneuver required in 45 minutes
+            </div>
+            <div class="alert-item alert-low">
+                <strong>LOW:</strong> TLE data refresh recommended
+            </div>
+        </div>
+        
+        <!-- Radar Display -->
+        <div class="control-panel">
+            <div class="panel-title">📡 Orbital Radar</div>
+            <div class="radar-sweep">
+                <div class="radar-line"></div>
+                <div class="satellite-dot" style="top: 30%; left: 60%;"></div>
+                <div class="satellite-dot" style="top: 70%; left: 40%;"></div>
+                <div class="satellite-dot" style="top: 45%; left: 80%;"></div>
+            </div>
+            <div style="text-align: center; font-size: 12px; opacity: 0.8;">
+                Scanning orbital space...
+            </div>
+        </div>
+        
+        <!-- Timeline Panel -->
+        <div class="control-panel" style="grid-column: span 2;">
+            <div class="panel-title">📅 Mission Timeline</div>
+            <div class="orbit-timeline" id="mission-timeline">
+                <div class="timeline-item">
+                    <div class="timeline-time">14:25:00</div>
+                    <div class="timeline-event">🛰️ ISS orbital adjustment planned</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-time">14:30:15</div>
+                    <div class="timeline-event">📡 TLE data refresh from CelesTrak</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-time">14:45:30</div>
+                    <div class="timeline-event">🚀 Starlink-1007 collision avoidance maneuver</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-time">15:00:00</div>
+                    <div class="timeline-event">📊 Hourly system health check</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update mission time
+        function updateMissionTime() {
+            const now = new Date();
+            document.getElementById('mission-time').textContent = 
+                now.toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+        }
+        
+        // Mission control functions
+        function planManeuver() {
+            const satellite = document.getElementById('satellite-selector').value;
+            alert(`Planning maneuver for satellite ${satellite}`);
+            // This would integrate with Streamlit
+        }
+        
+        function executeManeuver() {
+            alert('Executing planned maneuver...');
+            // This would trigger maneuver execution
+        }
+        
+        function pauseOperations() {
+            alert('Operations paused');
+        }
+        
+        function emergencyStop() {
+            if (confirm('Are you sure you want to execute EMERGENCY STOP?')) {
+                alert('EMERGENCY STOP EXECUTED');
+            }
+        }
+        
+        // Update system status
+        function updateSystemStatus(data) {
+            document.getElementById('satellites-count').textContent = data.satellites || 63;
+            document.getElementById('active-maneuvers').textContent = data.maneuvers || 0;
+            document.getElementById('system-health').textContent = data.health || 'OPTIMAL';
+            document.getElementById('data-age').textContent = data.dataAge || '15s';
+        }
+        
+        // Add timeline event
+        function addTimelineEvent(time, event) {
+            const timeline = document.getElementById('mission-timeline');
+            const item = document.createElement('div');
+            item.className = 'timeline-item';
+            item.innerHTML = `
+                <div class="timeline-time">${time}</div>
+                <div class="timeline-event">${event}</div>
+            `;
+            timeline.appendChild(item);
+            timeline.scrollTop = timeline.scrollHeight;
+        }
+        
+        // Initialize
+        setInterval(updateMissionTime, 1000);
+        updateMissionTime();
+        
+        // Example of adding a timeline event
+        setTimeout(() => {
+            addTimelineEvent('14:24:15', '🔄 System status updated from Streamlit');
+        }, 3000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Enhanced Three.js Orbital Simulation - Live Orbital Ballet</title>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%); 
+      font-family: 'Courier New', monospace;
+    }
+    canvas { display: block; }
+    
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 100;
+    }
+    
+    #status {
+      position: absolute; 
+      top: 10px; 
+      left: 10px;
+      padding: 10px 15px; 
+      background: rgba(0, 255, 159, 0.1);
+      border: 1px solid #00ff9f;
+      color: #00ff9f; 
+      font-family: 'Courier New', monospace; 
+      font-size: 14px;
+      border-radius: 5px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 20px rgba(0, 255, 159, 0.3);
+    }
+    
+    #controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #00ff9f;
+      color: #00ff9f;
+      min-width: 200px;
+      pointer-events: auto;
+    }
+    
+    .control-group {
+      margin-bottom: 15px;
+    }
+    
+    .control-label {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #00ff9f;
+    }
+    
+    .control-button {
+      background: linear-gradient(135deg, #00ff9f 0%, #00d4aa 100%);
+      color: #000;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      margin: 2px;
+      font-size: 11px;
+      transition: all 0.3s ease;
+    }
+    
+    .control-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 10px rgba(0, 255, 159, 0.4);
+    }
+    
+    .control-button.active {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+      color: white;
+    }
+    
+    #info-panel {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #00ff9f;
+      color: #00ff9f;
+      max-width: 300px;
+      pointer-events: auto;
+    }
+    
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+      font-size: 12px;
+    }
+    
+    .info-label {
+      font-weight: bold;
+    }
+    
+    #satellite-list {
+      position: absolute;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #00ff9f;
+      color: #00ff9f;
+      max-height: 300px;
+      overflow-y: auto;
+      width: 200px;
+      pointer-events: auto;
+    }
+    
+    .satellite-item {
+      padding: 8px;
+      margin: 3px 0;
+      background: rgba(0, 255, 159, 0.1);
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.3s ease;
+    }
+    
+    .satellite-item:hover {
+      background: rgba(0, 255, 159, 0.2);
+      transform: translateX(5px);
+    }
+    
+    .satellite-item.selected {
+      background: rgba(255, 107, 107, 0.2);
+      border-left: 3px solid #ff6b6b;
+    }
+    
+    .blink {
+      animation: blink 1s infinite;
+    }
+    
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
+    
+    #error-message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 0, 0, 0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      display: none;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div id="status">🚀 Initializing 3D Engine...</div>
+    
+    <div id="controls">
+      <div class="control-group">
+        <div class="control-label">🎮 Camera Control</div>
+        <button class="control-button" onclick="focusEarth()">Focus Earth</button>
+        <button class="control-button" onclick="focusISS()">Track ISS</button>
+        <button class="control-button" onclick="resetCamera()">Reset View</button>
+      </div>
+      
+      <div class="control-group">
+        <div class="control-label">⏰ Time Control</div>
+        <button class="control-button" onclick="setTimeSpeed(0)">Pause</button>
+        <button class="control-button" onclick="setTimeSpeed(1)">1x</button>
+        <button class="control-button" onclick="setTimeSpeed(5)">5x</button>
+        <button class="control-button" onclick="setTimeSpeed(10)">10x</button>
+      </div>
+      
+      <div class="control-group">
+        <div class="control-label">🌍 Display Options</div>
+        <button class="control-button active" id="sat-toggle" onclick="toggleSatellites()">Satellites</button>
+        <button class="control-button active" id="debris-toggle" onclick="toggleDebris()">Debris</button>
+        <button class="control-button" id="orbit-toggle" onclick="toggleOrbits()">Orbits</button>
+        <button class="control-button active" id="rotation-toggle" onclick="toggleEarthRotation()">Rotation</button>
+      </div>
+    </div>
+    
+    <div id="info-panel">
+      <div style="font-weight: bold; margin-bottom: 10px; color: #00ff9f;">📊 Mission Control</div>
+      <div class="info-item">
+        <span class="info-label">Active Satellites:</span>
+        <span id="satellite-count">0</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Debris Objects:</span>
+        <span id="debris-count">0</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Time Speed:</span>
+        <span id="time-speed">1x</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Earth Rotation:</span>
+        <span id="earth-rotation">ON</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Frame Rate:</span>
+        <span id="fps">60 FPS</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Data Source:</span>
+        <span id="data-source" class="blink">Live Feed</span>
+      </div>
+    </div>
+    
+    <div id="satellite-list">
+      <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">📡 Tracked Objects</div>
+      <div id="satellite-items"></div>
+    </div>
+  </div>
+
+  <div id="error-message">
+    <h3>⚠️ WebGL Error</h3>
+    <p>Your browser doesn't support WebGL or Three.js failed to load.</p>
+    <button onclick="location.reload()">Retry</button>
+  </div>
+
+  <!-- Load Three.js and OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+  
+  <script>
+    // Global variables
+    let scene, camera, renderer, earth, earthRotation = true;
+    let satellites = {}, debris = {}, orbits = {};
+    let satelliteGroup, debrisGroup, orbitGroup;
+    let controls, timeSpeed = 1;
+    let selectedSatellite = null;
+    let frameCount = 0, lastTime = Date.now();
+    let isInitialized = false;
+    
+    // Display toggles
+    let showSatellites = true, showDebris = true, showOrbits = false;
+    
+    // Enhanced satellite data (real satellites with accurate parameters)
+    const satelliteData = [
+      { id: 'iss', name: 'ISS (ZARYA)', norad: 25544, color: 0xff0000, size: 3, altitude: 408, inclination: 51.6 },
+      { id: 'hubble', name: 'HUBBLE SPACE TELESCOPE', norad: 20580, color: 0x00ff00, size: 2, altitude: 547, inclination: 28.5 },
+      { id: 'starlink1', name: 'STARLINK-1007', norad: 44713, color: 0x0080ff, size: 1.5, altitude: 550, inclination: 53.0 },
+      { id: 'starlink2', name: 'STARLINK-1019', norad: 44714, color: 0x0080ff, size: 1.5, altitude: 550, inclination: 53.0 },
+      { id: 'gps1', name: 'GPS BIIA-21', norad: 26690, color: 0xffff00, size: 2, altitude: 20200, inclination: 55.0 },
+      { id: 'gps2', name: 'GPS BIIF-12', norad: 41019, color: 0xffff00, size: 2, altitude: 20200, inclination: 55.0 },
+      { id: 'cosmos', name: 'COSMOS 2251 DEB', norad: 34454, color: 0xff8000, size: 1, altitude: 790, inclination: 74.0 },
+      { id: 'tiangong', name: 'CSS (TIANHE)', norad: 48274, color: 0xff0080, size: 3, altitude: 340, inclination: 41.5 }
+    ];
+    
+    const debrisData = Array.from({length: 50}, (_, i) => ({
+      id: `debris_${i}`,
+      name: `DEBRIS-${i + 1000}`,
+      color: 0x808080,
+      size: 0.8,
+      altitude: 400 + Math.random() * 800,
+      inclination: Math.random() * 180
+    }));
+
+    // Error handling function
+    function showError(message) {
+      console.error(message);
+      document.getElementById('error-message').style.display = 'block';
+      updateStatus('❌ Error: ' + message);
+    }
+
+    // Check if Three.js is loaded
+    function checkThreeJS() {
+      if (typeof THREE === 'undefined') {
+        showError('Three.js failed to load');
+        return false;
+      }
+      return true;
+    }
+
+    // Initialize the simulation
+    async function init() {
+      try {
+        if (!checkThreeJS()) return;
+        
+        updateStatus('🚀 Initializing 3D Engine...');
+        
+        // Scene setup
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50000);
+        camera.position.set(0, 0, 300);
+
+        // WebGL Renderer with error checking
+        try {
+          renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          renderer.setClearColor(0x000000, 1);
+          renderer.shadowMap.enabled = true;
+          renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          document.body.appendChild(renderer.domElement);
+        } catch (e) {
+          showError('WebGL not supported in this browser');
+          return;
+        }
+
+        // Controls - check if OrbitControls is available
+        if (typeof THREE.OrbitControls !== 'undefined') {
+          controls = new THREE.OrbitControls(camera, renderer.domElement);
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.1;
+          controls.minDistance = 60;
+          controls.maxDistance = 2000;
+        } else {
+          console.warn('OrbitControls not loaded, using basic camera');
+        }
+
+        // Lighting setup
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        sunLight.position.set(500, 300, 200);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        scene.add(sunLight);
+
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+        scene.add(ambientLight);
+
+        // Space background
+        const spaceGeometry = new THREE.SphereGeometry(5000, 32, 32);
+        const spaceMaterial = new THREE.MeshBasicMaterial({
+          color: 0x000011,
+          side: THREE.BackSide
+        });
+        const space = new THREE.Mesh(spaceGeometry, spaceMaterial);
+        scene.add(space);
+
+        // Stars
+        createStarField();
+
+        updateStatus('🌍 Loading Earth...');
+        
+        // Earth with fallback color
+        const earthGeometry = new THREE.SphereGeometry(50, 64, 64);
+        const earthMaterial = new THREE.MeshPhongMaterial({ 
+          color: 0x2233ff,
+          shininess: 30
+        });
+        
+        earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        earth.receiveShadow = true;
+        scene.add(earth);
+
+        // Earth atmosphere
+        const atmosphereGeometry = new THREE.SphereGeometry(52, 64, 64);
+        const atmosphereMaterial = new THREE.MeshPhongMaterial({
+          color: 0x87ceeb,
+          transparent: true,
+          opacity: 0.1,
+          side: THREE.BackSide
+        });
+        const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+        scene.add(atmosphere);
+
+        // Create groups for organization
+        satelliteGroup = new THREE.Group();
+        debrisGroup = new THREE.Group();
+        orbitGroup = new THREE.Group();
+        scene.add(satelliteGroup);
+        scene.add(debrisGroup);
+        scene.add(orbitGroup);
+
+        updateStatus('📡 Creating satellites...');
+        
+        // Initialize objects
+        createSatellites();
+        createDebris();
+        createOrbits();
+        
+        // Update UI
+        updateSatelliteList();
+        updateCounters();
+
+        // Event listeners
+        window.addEventListener("resize", onWindowResize);
+        
+        isInitialized = true;
+        updateStatus('✅ Orbital Simulation Ready');
+        
+        console.log('Three.js simulation initialized successfully');
+        
+      } catch (error) {
+        console.error('Initialization error:', error);
+        showError('Failed to initialize 3D scene: ' + error.message);
+      }
+    }
+
+    function createStarField() {
+      const starGeometry = new THREE.BufferGeometry();
+      const starCount = 2000;
+      const positions = new Float32Array(starCount * 3);
+      
+      for (let i = 0; i < starCount * 3; i++) {
+        positions[i] = (Math.random() - 0.5) * 8000;
+      }
+      
+      starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 2 });
+      const stars = new THREE.Points(starGeometry, starMaterial);
+      scene.add(stars);
+    }
+
+    function createSatellites() {
+      satelliteData.forEach(sat => {
+        const geometry = new THREE.BoxGeometry(sat.size, sat.size, sat.size * 2);
+        const material = new THREE.MeshPhongMaterial({ 
+          color: sat.color,
+          emissive: sat.color,
+          emissiveIntensity: 0.2
+        });
+        
+        const satellite = new THREE.Mesh(geometry, material);
+        
+        // Calculate orbital position
+        const altitude = sat.altitude || 400; // km above Earth surface
+        const radius = 50 + altitude * 0.1; // Earth radius (50) + scaled altitude
+        const angle = Math.random() * Math.PI * 2;
+        const inclination = (sat.inclination || 0) * Math.PI / 180;
+        
+        satellite.position.set(
+          radius * Math.cos(angle) * Math.cos(inclination),
+          radius * Math.sin(inclination) * Math.sin(angle),
+          radius * Math.sin(angle) * Math.cos(inclination)
+        );
+        
+        satellite.userData = { 
+          ...sat, 
+          angle: angle, 
+          radius: radius,
+          inclination: inclination,
+          speed: 0.01 * (1 / Math.sqrt(radius)) // Orbital speed based on altitude
+        };
+        
+        satellites[sat.id] = satellite;
+        satelliteGroup.add(satellite);
+      });
+    }
+
+    function createDebris() {
+      debrisData.forEach(debris => {
+        const geometry = new THREE.SphereGeometry(debris.size, 8, 8);
+        const material = new THREE.MeshBasicMaterial({ color: debris.color });
+        
+        const debrisObj = new THREE.Mesh(geometry, material);
+        
+        const altitude = debris.altitude || (400 + Math.random() * 800);
+        const radius = 50 + altitude * 0.1;
+        const angle = Math.random() * Math.PI * 2;
+        const inclination = (debris.inclination || Math.random() * 180) * Math.PI / 180;
+        
+        debrisObj.position.set(
+          radius * Math.cos(angle) * Math.cos(inclination),
+          radius * Math.sin(inclination) * Math.sin(angle),
+          radius * Math.sin(angle) * Math.cos(inclination)
+        );
+        
+        debrisObj.userData = { 
+          ...debris, 
+          angle: angle, 
+          radius: radius,
+          inclination: inclination,
+          speed: 0.008 * (1 / Math.sqrt(radius))
+        };
+        
+        debris[debris.id] = debrisObj;
+        debrisGroup.add(debrisObj);
+      });
+    }
+
+    function createOrbits() {
+      satelliteData.forEach(sat => {
+        const altitude = sat.altitude || 400;
+        const radius = 50 + altitude * 0.1;
+        const inclination = (sat.inclination || 0) * Math.PI / 180;
+        
+        const curve = new THREE.EllipseCurve(
+          0, 0,
+          radius, radius,
+          0, 2 * Math.PI,
+          false,
+          0
+        );
+        
+        const points = curve.getPoints(64);
+        const orbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
+        const orbitMaterial = new THREE.LineBasicMaterial({ 
+          color: sat.color, 
+          opacity: 0.3, 
+          transparent: true 
+        });
+        const orbit = new THREE.Line(orbitGeometry, orbitMaterial);
+        
+        orbit.rotateX(inclination);
+        orbit.userData = sat;
+        
+        orbits[sat.id] = orbit;
+        orbitGroup.add(orbit);
+      });
+    }
+
+    function simulate() {
+      if (!isInitialized) return;
+      
+      const currentTime = Date.now() * 0.001 * timeSpeed;
+      
+      // Update satellites
+      Object.values(satellites).forEach(satellite => {
+        if (satellite.userData) {
+          satellite.userData.angle += satellite.userData.speed * timeSpeed;
+          const radius = satellite.userData.radius;
+          const angle = satellite.userData.angle;
+          const inclination = satellite.userData.inclination;
+          
+          satellite.position.set(
+            radius * Math.cos(angle) * Math.cos(inclination),
+            radius * Math.sin(inclination) * Math.sin(angle),
+            radius * Math.sin(angle) * Math.cos(inclination)
+          );
+          
+          // Rotate satellite
+          satellite.rotation.y += 0.02 * timeSpeed;
+        }
+      });
+      
+      // Update debris
+      Object.values(debris).forEach(debrisObj => {
+        if (debrisObj.userData) {
+          debrisObj.userData.angle += debrisObj.userData.speed * timeSpeed;
+          const radius = debrisObj.userData.radius;
+          const angle = debrisObj.userData.angle;
+          const inclination = debrisObj.userData.inclination;
+          
+          debrisObj.position.set(
+            radius * Math.cos(angle) * Math.cos(inclination),
+            radius * Math.sin(inclination) * Math.sin(angle),
+            radius * Math.sin(angle) * Math.cos(inclination)
+          );
+        }
+      });
+      
+      // Rotate Earth
+      if (earthRotation && earth) {
+        earth.rotation.y += 0.005 * timeSpeed;
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      if (!isInitialized) return;
+      
+      simulate();
+      
+      if (controls) controls.update();
+      
+      if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+      }
+      
+      // Update FPS counter
+      frameCount++;
+      const now = Date.now();
+      if (now - lastTime >= 1000) {
+        document.getElementById('fps').textContent = frameCount + ' FPS';
+        frameCount = 0;
+        lastTime = now;
+      }
+    }
+
+    function onWindowResize() {
+      if (!camera || !renderer) return;
+      
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Control functions
+    function focusEarth() {
+      if (!camera || !controls) return;
+      camera.position.set(0, 0, 200);
+      if (controls) controls.target.set(0, 0, 0);
+    }
+
+    function focusISS() {
+      if (!satellites.iss || !camera || !controls) return;
+      const iss = satellites.iss;
+      camera.position.copy(iss.position);
+      camera.position.multiplyScalar(1.5);
+      if (controls) controls.target.copy(iss.position);
+    }
+
+    function resetCamera() {
+      if (!camera || !controls) return;
+      camera.position.set(0, 0, 300);
+      if (controls) controls.target.set(0, 0, 0);
+    }
+
+    function setTimeSpeed(speed) {
+      timeSpeed = speed;
+      document.getElementById('time-speed').textContent = speed + 'x';
+      document.querySelectorAll('#controls .control-button').forEach(btn => {
+        if (btn.textContent === speed + 'x' || (speed === 0 && btn.textContent === 'Pause')) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    }
+
+    function toggleSatellites() {
+      showSatellites = !showSatellites;
+      satelliteGroup.visible = showSatellites;
+      document.getElementById('sat-toggle').classList.toggle('active', showSatellites);
+    }
+
+    function toggleDebris() {
+      showDebris = !showDebris;
+      debrisGroup.visible = showDebris;
+      document.getElementById('debris-toggle').classList.toggle('active', showDebris);
+    }
+
+    function toggleOrbits() {
+      showOrbits = !showOrbits;
+      orbitGroup.visible = showOrbits;
+      document.getElementById('orbit-toggle').classList.toggle('active', showOrbits);
+    }
+
+    function toggleEarthRotation() {
+      earthRotation = !earthRotation;
+      document.getElementById('earth-rotation').textContent = earthRotation ? 'ON' : 'OFF';
+      document.getElementById('rotation-toggle').classList.toggle('active', earthRotation);
+    }
+
+    function updateStatus(message) {
+      document.getElementById('status').textContent = message;
+    }
+
+    function updateCounters() {
+      document.getElementById('satellite-count').textContent = satelliteData.length;
+      document.getElementById('debris-count').textContent = debrisData.length;
+    }
+
+    function updateSatelliteList() {
+      const container = document.getElementById('satellite-items');
+      container.innerHTML = '';
+      
+      satelliteData.forEach(sat => {
+        const item = document.createElement('div');
+        item.className = 'satellite-item';
+        item.innerHTML = `
+          <div style="font-weight: bold;">${sat.name}</div>
+          <div style="font-size: 10px; opacity: 0.7;">NORAD: ${sat.norad}</div>
+          <div style="font-size: 10px; opacity: 0.7;">Alt: ${sat.altitude || 400}km</div>
+        `;
+        
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.satellite-item').forEach(el => el.classList.remove('selected'));
+          item.classList.add('selected');
+          selectedSatellite = sat.id;
+          
+          if (satellites[sat.id] && camera && controls) {
+            const satellite = satellites[sat.id];
+            camera.position.copy(satellite.position);
+            camera.position.multiplyScalar(1.2);
+            if (controls) controls.target.copy(satellite.position);
+          }
+        });
+        
+        container.appendChild(item);
+      });
+    }
+
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM loaded, initializing Three.js...');
+      setTimeout(init, 100); // Small delay to ensure all scripts are loaded
+      setTimeout(animate, 200);
+    });
+
+    // Fallback initialization
+    window.addEventListener('load', function() {
+      if (!isInitialized) {
+        console.log('Fallback initialization...');
+        init();
+        animate();
+      }
+    });
+  </script>
+</body>
+</html>
