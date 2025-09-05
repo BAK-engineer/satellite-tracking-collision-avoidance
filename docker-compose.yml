@@ -2,170 +2,163 @@ version: '3.8'
 
 services:
   # PostgreSQL Database
-  database:
-    image: postgres:13-alpine
-    container_name: orbital-ballet-db
-    restart: unless-stopped
+  postgres:
+    image: postgres:15-alpine
+    container_name: orbital-nexus-db
     environment:
-      POSTGRES_DB: orbital_ballet
+      POSTGRES_DB: orbital_nexus
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: orbital_nexus_2024
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - orbital-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d orbital_ballet"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - orbital-network
 
-  # Main Application (Full System)
-  app-main:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: orbital-ballet-main
-    restart: unless-stopped
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
-      - STREAMLIT_SERVER_PORT=8501
-      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: orbital-nexus-redis
     ports:
-      - "8501:8501"
-    depends_on:
-      database:
-        condition: service_healthy
-    volumes:
-      - ./:/app
-      - app_logs:/app/logs
-    command: ["streamlit", "run", "app.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
+      - "6379:6379"
     networks:
       - orbital-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/healthz"]
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: orbital-nexus-backend
+    environment:
+      - DATABASE_URL=postgresql://postgres:orbital_nexus_2024@postgres:5432/orbital_nexus
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=production
+      - LOG_LEVEL=info
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - orbital-network
+    volumes:
+      - ./backend:/app
+      - satellite_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  # Enhanced Dashboard
-  app-enhanced:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: orbital-ballet-enhanced
     restart: unless-stopped
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
-      - STREAMLIT_SERVER_PORT=8502
-      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=http://localhost:8000
+        - REACT_APP_WS_URL=ws://localhost:8000
+    container_name: orbital-nexus-frontend
     ports:
-      - "8502:8502"
+      - "3000:80"
     depends_on:
-      database:
-        condition: service_healthy
-    volumes:
-      - ./:/app
-      - app_logs:/app/logs
-    command: ["streamlit", "run", "ui_enhanced.py", "--server.address", "0.0.0.0", "--server.port", "8502"]
+      - backend
     networks:
       - orbital-network
-
-  # Integrated Maneuvering System
-  app-maneuvering:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: orbital-ballet-maneuvering
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
-      - STREAMLIT_SERVER_PORT=8503
-      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: orbital-nexus-proxy
     ports:
-      - "8503:8503"
-    depends_on:
-      database:
-        condition: service_healthy
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./:/app
-      - app_logs:/app/logs
-    command: ["streamlit", "run", "ui_integrated.py", "--server.address", "0.0.0.0", "--server.port", "8503"]
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/html:/usr/share/nginx/html
+    depends_on:
+      - frontend
+      - backend
     networks:
       - orbital-network
-
-  # Three.js Integrated Application
-  app-threejs:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: orbital-ballet-threejs
     restart: unless-stopped
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
-      - STREAMLIT_SERVER_PORT=8504
-      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: orbital-nexus-prometheus
     ports:
-      - "8504:8504"
-    depends_on:
-      database:
-        condition: service_healthy
+      - "9090:9090"
     volumes:
-      - ./:/app
-      - app_logs:/app/logs
-    command: ["streamlit", "run", "ui_threejs_integrated.py", "--server.address", "0.0.0.0", "--server.port", "8504"]
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
     networks:
       - orbital-network
-
-  # WebSocket Server for Real-time Data
-  websocket-server:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: orbital-ballet-websocket
     restart: unless-stopped
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
-    ports:
-      - "8765:8765"
-    depends_on:
-      database:
-        condition: service_healthy
-    volumes:
-      - ./:/app
-      - app_logs:/app/logs
-    command: ["python", "websocket_server.py"]
-    networks:
-      - orbital-network
 
-  # Database Initializer (Run once)
-  db-init:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: orbital-ballet-init
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: orbital-nexus-grafana
+    ports:
+      - "3001:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@database:5432/orbital_ballet
-    depends_on:
-      database:
-        condition: service_healthy
+      - GF_SECURITY_ADMIN_PASSWORD=orbital_admin_2024
+      - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
-      - ./:/app
-    command: ["python", "setup_database.py", "--create-tables", "--sample-data"]
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
     networks:
       - orbital-network
-    restart: "no"
+    restart: unless-stopped
 
 volumes:
   postgres_data:
     driver: local
-  app_logs:
+  satellite_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
 networks:
   orbital-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

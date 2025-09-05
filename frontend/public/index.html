@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#00ff9f" />
+  <meta name="description" content="ORBITAL NEXUS - Professional 3D Satellite Tracking Platform. Real-time orbital mechanics visualization with SGP4 propagation, collision detection, and mission control capabilities." />
+  <meta name="keywords" content="satellite tracking, orbital mechanics, space situational awareness, SGP4, TLE, collision detection, space debris, mission control" />
+  <meta name="author" content="Orbital Nexus Team" />
+  
+  <!-- Open Graph Meta Tags -->
+  <meta property="og:title" content="ORBITAL NEXUS - 3D Satellite Tracking Platform" />
+  <meta property="og:description" content="Professional real-time satellite tracking with 3D visualization, orbital mechanics, and collision detection" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="%PUBLIC_URL%" />
+  <meta property="og:image" content="%PUBLIC_URL%/orbital-nexus-preview.png" />
+  
+  <!-- Twitter Meta Tags -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="ORBITAL NEXUS - 3D Satellite Tracking" />
+  <meta name="twitter:description" content="Professional satellite tracking platform with real-time 3D visualization" />
+  <meta name="twitter:image" content="%PUBLIC_URL%/orbital-nexus-preview.png" />
+  
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+  
+  <!-- Preload critical resources -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Material Icons -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  
+  <!-- Critical CSS for loading states -->
+  <style>
+    /* Critical loading styles */
+    body {
+      margin: 0;
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+      color: #ffffff;
+      overflow: hidden;
+    }
+
+    /* Loading screen */
+    .orbital-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 9999;
+      transition: opacity 0.5s ease-out;
+    }
+
+    .orbital-logo {
+      width: 80px;
+      height: 80px;
+      border: 3px solid transparent;
+      border-top: 3px solid #00ff9f;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    .orbital-text {
+      font-size: 24px;
+      font-weight: 500;
+      color: #00ff9f;
+      text-align: center;
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+    }
+
+    .orbital-subtitle {
+      font-size: 14px;
+      color: #888;
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.4;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .loading-dots {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    /* Hide loader when React app loads */
+    #root:not(:empty) + .orbital-loader {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* WebGL context error styles */
+    .webgl-error {
+      background: rgba(255, 0, 0, 0.1);
+      border: 1px solid rgba(255, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px;
+      color: #ff6b6b;
+      text-align: center;
+      max-width: 500px;
+    }
+
+    .webgl-error h3 {
+      margin: 0 0 10px 0;
+      color: #ff4757;
+    }
+
+    .webgl-error p {
+      margin: 5px 0;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+  </style>
+  
+  <title>ORBITAL NEXUS - 3D Satellite Tracking Platform</title>
+</head>
+<body>
+  <noscript>
+    <div style="padding: 40px; text-align: center; color: #ff6b6b;">
+      <h2>🛰️ ORBITAL NEXUS</h2>
+      <p>You need to enable JavaScript to run this satellite tracking application.</p>
+      <p>Please enable JavaScript in your browser settings and reload the page.</p>
+    </div>
+  </noscript>
+  
+  <!-- Main React App Container -->
+  <div id="root"></div>
+  
+  <!-- Loading Screen (shown until React loads) -->
+  <div class="orbital-loader">
+    <div class="orbital-logo"></div>
+    <div class="orbital-text">ORBITAL NEXUS</div>
+    <div class="orbital-subtitle">
+      Professional 3D Satellite Tracking Platform<br>
+      <span class="loading-dots">Loading orbital mechanics engine...</span>
+    </div>
+  </div>
+
+  <!-- WebGL Support Detection -->
+  <script>
+    // Detect WebGL support and show appropriate message
+    function checkWebGLSupport() {
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        return !!gl;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // Performance monitoring
+    window.performanceMetrics = {
+      startTime: Date.now(),
+      webglSupported: checkWebGLSupport(),
+      userAgent: navigator.userAgent,
+      screenResolution: `${screen.width}x${screen.height}`,
+      devicePixelRatio: window.devicePixelRatio || 1
+    };
+
+    // Global error handler for better debugging
+    window.addEventListener('error', function(e) {
+      console.error('🛰️ Global Error:', e.error);
+      
+      // Send error to monitoring service if available
+      if (window.gtag) {
+        gtag('event', 'exception', {
+          description: e.error?.message || 'Unknown error',
+          fatal: false
+        });
+      }
+    });
+
+    // WebGL context lost handler
+    window.addEventListener('webglcontextlost', function(e) {
+      console.warn('🛰️ WebGL context lost:', e);
+      e.preventDefault();
+      
+      // Show user-friendly message
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'webgl-error';
+      errorDiv.innerHTML = `
+        <h3>⚠️ Graphics Context Lost</h3>
+        <p>The 3D graphics context has been lost. This usually happens when:</p>
+        <p>• Your GPU driver crashed or was reset</p>
+        <p>• The browser ran out of graphics memory</p>
+        <p>• You switched between applications</p>
+        <p><strong>Please refresh the page to restore 3D visualization.</strong></p>
+      `;
+      document.body.appendChild(errorDiv);
+    });
+
+    // WebGL context restored handler
+    window.addEventListener('webglcontextrestored', function(e) {
+      console.log('🛰️ WebGL context restored:', e);
+      
+      // Remove error messages
+      const errorDivs = document.querySelectorAll('.webgl-error');
+      errorDivs.forEach(div => div.remove());
+    });
+
+    // Performance observer for monitoring
+    if ('PerformanceObserver' in window) {
+      const observer = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        entries.forEach((entry) => {
+          if (entry.entryType === 'navigation') {
+            window.performanceMetrics.loadTime = entry.loadEventEnd - entry.loadEventStart;
+          }
+        });
+      });
+      observer.observe({ entryTypes: ['navigation'] });
+    }
+
+    // Dark mode preference detection
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark-mode-preferred');
+    }
+
+    // Reduced motion preference
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.documentElement.classList.add('reduced-motion');
+    }
+
+    // High contrast preference
+    if (window.matchMedia && window.matchMedia('(prefers-contrast: high)').matches) {
+      document.documentElement.classList.add('high-contrast');
+    }
+  </script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js')
+          .then(function(registration) {
+            console.log('🛰️ Service Worker registered:', registration.scope);
+          })
+          .catch(function(error) {
+            console.log('🛰️ Service Worker registration failed:', error);
+          });
+      });
+    }
+  </script>
+
+  <!-- Analytics (if needed) -->
+  <!-- 
+  <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'GA_MEASUREMENT_ID');
+  </script>
+  -->
+</body>
+</html>

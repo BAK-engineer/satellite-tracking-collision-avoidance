@@ -1,0 +1,99 @@
+{
+  "short_name": "Orbital Nexus",
+  "name": "ORBITAL NEXUS - 3D Satellite Tracking Platform",
+  "description": "Professional real-time satellite tracking with 3D visualization, orbital mechanics, and collision detection",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#00ff9f",
+  "background_color": "#0a0a0a",
+  "orientation": "landscape-primary",
+  "categories": ["education", "productivity", "utilities"],
+  "lang": "en-US",
+  "scope": "/",
+  "id": "orbital-nexus-app",
+  "screenshots": [
+    {
+      "src": "screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "ORBITAL NEXUS Dashboard with 3D satellite visualization"
+    },
+    {
+      "src": "screenshot-narrow.png", 
+      "sizes": "640x1136",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "ORBITAL NEXUS Mobile Interface"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Open the main satellite tracking dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "icon-dashboard.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "3D View",
+      "short_name": "3D View", 
+      "description": "Open the 3D orbital visualization",
+      "url": "/satellites",
+      "icons": [{ "src": "icon-3d.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Alerts",
+      "short_name": "Alerts",
+      "description": "View collision alerts and notifications",
+      "url": "/alerts",
+      "icons": [{ "src": "icon-alerts.png", "sizes": "96x96" }]
+    }
+  ],
+  "related_applications": [
+    {
+      "platform": "web",
+      "url": "https://orbital-nexus.space/"
+    }
+  ],
+  "prefer_related_applications": false,
+  "protocol_handlers": [
+    {
+      "protocol": "web+orbital",
+      "url": "/?satellite=%s"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/import",
+      "accept": {
+        "text/plain": [".tle"],
+        "application/json": [".json"]
+      }
+    }
+  ],
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
+}

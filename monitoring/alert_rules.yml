@@ -1,0 +1,140 @@
+# 🛰️ ORBITAL NEXUS - Prometheus Alert Rules
+
+groups:
+  - name: orbital-nexus-alerts
+    rules:
+      # Backend API Health
+      - alert: BackendDown
+        expr: up{job="orbital-nexus-backend"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: backend
+        annotations:
+          summary: "ORBITAL NEXUS Backend is down"
+          description: "The backend API has been down for more than 30 seconds"
+
+      # Database Health
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "The PostgreSQL database has been unreachable for more than 30 seconds"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: http_request_duration_seconds{quantile="0.95"} > 2
+        for: 2m
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is above 2 seconds for {{ $labels.job }}"
+
+      # Low WebSocket Connections
+      - alert: NoWebSocketConnections
+        expr: websocket_connections_active == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: websocket
+        annotations:
+          summary: "No active WebSocket connections"
+          description: "There have been no active WebSocket connections for 5 minutes"
+
+      # Satellite Data Freshness
+      - alert: StaleSatelliteData
+        expr: time() - satellite_data_last_update_timestamp > 7200
+        for: 0s
+        labels:
+          severity: warning
+          service: data
+        annotations:
+          summary: "Satellite data is stale"
+          description: "Satellite TLE data hasn't been updated in over 2 hours"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal - node_memory_MemAvailable) / node_memory_MemTotal > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 85% for 5 minutes"
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% for 5 minutes"
+
+      # Disk Space Low
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space is below 10% for {{ $labels.mountpoint }}"
+
+  - name: collision-detection-alerts
+    rules:
+      # Collision Risk Detected
+      - alert: HighCollisionRisk
+        expr: collision_risk_high_count > 0
+        for: 0s
+        labels:
+          severity: critical
+          service: collision-detection
+        annotations:
+          summary: "High collision risk detected"
+          description: "{{ $value }} satellites have high collision risk"
+
+      # Maneuvering Satellites
+      - alert: ManeuveringSatellites
+        expr: satellites_maneuvering_count > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: tracking
+        annotations:
+          summary: "Many satellites maneuvering"
+          description: "{{ $value }} satellites are currently maneuvering"
+
+  - name: data-quality-alerts
+    rules:
+      # TLE Data Quality
+      - alert: BadTLEData
+        expr: tle_parsing_errors_total > 50
+        for: 1m
+        labels:
+          severity: warning
+          service: data-ingestion
+        annotations:
+          summary: "High TLE parsing error rate"
+          description: "{{ $value }} TLE parsing errors in the last minute"
+
+      # Missing Satellite Updates
+      - alert: MissingSatelliteUpdates
+        expr: satellites_without_recent_update_count > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: tracking
+        annotations:
+          summary: "Many satellites without recent updates"
+          description: "{{ $value }} satellites haven't been updated recently"
