@@ -9,10 +9,9 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
-from typing import List, Dict, Tuple, Optional
+from datetime import datetime
+from typing import List, Dict
 import logging
-from dataclasses import asdict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -161,8 +160,8 @@ class EarthVisualization:
                     hovertemplate=(
                         f"<b>Space Debris</b><br>"
                         f"Risk: {risk_cat.title()}<br>"
-                        f"Size: %{customdata:.3f} m<br>"
-                        f"Position: (%{x:.1f}, %{y:.1f}, %{z:.1f}) km"
+                        f"Size: %{{customdata:.3f}} m<br>"
+                        f"Position: (%{{x:.1f}}, %{{y:.1f}}, %{{z:.1f}}) km"
                         "<extra></extra>"
                     ),
                     customdata=sizes
@@ -198,8 +197,8 @@ class EarthVisualization:
             name=f"{object_name} Trajectory",
             hovertemplate=(
                 f"<b>{object_name} Trajectory</b><br>"
-                f"Position: (%{x:.1f}, %{y:.1f}, %{z:.1f}) km<br>"
-                f"Time: %{customdata}<br>"
+                f"Position: (%{{x:.1f}}, %{{y:.1f}}, %{{z:.1f}}) km<br>"
+                f"Time: %{{customdata}}<br>"
                 "<extra></extra>"
             ),
             customdata=[state.get('timestamp', 'Unknown') for state in predicted_states]

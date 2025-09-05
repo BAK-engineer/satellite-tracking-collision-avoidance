@@ -7,7 +7,7 @@ import requests
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Union, Any
 import logging
 from dataclasses import dataclass
 import time
